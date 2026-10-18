@@ -1,0 +1,505 @@
+openapi: 3.0.3
+info:
+  title: PulseFlow Project Management & Feasibility Engine API
+  description: >
+    Production-grade RESTful API for Project Management with Multi-Role Allocation
+    (Dev, QA, BA, PM), Mathematical Deadline Feasibility Calculation (CPM), and Concurrency-Safe Time Tracking.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server
+
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate user & obtain JWT tokens
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: alex@company.com
+                password:
+                  type: string
+                  format: password
+                  example: SecurePass123!
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseEnvelope'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token using rotating refresh token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed successfully
+        '401':
+          description: Invalid or expired refresh token
+
+  /users:
+    get:
+      summary: List all users filtered by primary role
+      tags: [Users]
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [DEVELOPER, QA_ENGINEER, BUSINESS_ANALYST, PROJECT_MANAGER, ADMIN]
+      responses:
+        '200':
+          description: User list
+    post:
+      summary: Create new user with primary functional role
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+
+  /projects:
+    get:
+      summary: List all accessible projects
+      tags: [Projects]
+      responses:
+        '200':
+          description: Projects list
+    post:
+      summary: Create new project with strict timeline bounds
+      tags: [Projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created
+        '422':
+          description: Validation failure (target_end_date < start_date)
+
+  /projects/{id}:
+    get:
+      summary: Get project details by ID
+      tags: [Projects]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project details
+    put:
+      summary: Update project timeline or metadata (guards existing tasks)
+      tags: [Projects]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Project updated
+        '409':
+          description: Conflict (narrowing timeline violates existing tasks)
+
+  /projects/{id}/members:
+    get:
+      summary: List project team roster by role (Dev, QA, BA, PM)
+      tags: [Project Members]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Members list
+    post:
+      summary: Assign user to project with specific role and allocation
+      tags: [Project Members]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignMemberRequest'
+      responses:
+        '201':
+          description: Member assigned
+
+  /projects/{id}/tasks:
+    get:
+      summary: List tasks for a project
+      tags: [Tasks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task list
+    post:
+      summary: Create task (strictly checked within project timeline range)
+      tags: [Tasks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created
+        '422':
+          description: Task dates outside project timeline bounds
+
+  /projects/{id}/feasibility:
+    get:
+      summary: Calculate real-time mathematical deadline feasibility & CPM
+      tags: [Feasibility Engine]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deadline feasibility report with buffer & role utilization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeasibilityResponseEnvelope'
+
+  /tasks/{id}/timer/start:
+    post:
+      summary: Start live timer on task (protected by DB partial unique index)
+      tags: [Time Tracking]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Timer started
+        '409':
+          description: User already has an active running timer
+
+  /timer/stop:
+    post:
+      summary: Stop user's currently active timer & roll up task logged hours
+      tags: [Time Tracking]
+      responses:
+        '200':
+          description: Timer stopped and logged
+
+components:
+  schemas:
+    BaseEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        meta:
+          type: object
+          properties:
+            request_id:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+
+    ErrorEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            error:
+              type: object
+              required: [code, message]
+              properties:
+                code:
+                  type: string
+                  example: VALIDATION_FAILED
+                message:
+                  type: string
+                  example: Target end date must be on or after start date
+                details:
+                  type: array
+                  items:
+                    type: object
+
+    AuthResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                refresh_token:
+                  type: string
+                expires_in:
+                  type: integer
+                  example: 900
+                user:
+                  $ref: '#/components/schemas/UserDTO'
+
+    UserDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        full_name:
+          type: string
+        primary_role:
+          type: string
+          enum: [DEVELOPER, QA_ENGINEER, BUSINESS_ANALYST, PROJECT_MANAGER, ADMIN]
+        default_daily_hours:
+          type: number
+          example: 8.00
+        is_active:
+          type: boolean
+
+    CreateUserRequest:
+      type: object
+      required: [email, password, full_name, primary_role]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        full_name:
+          type: string
+        primary_role:
+          type: string
+          enum: [DEVELOPER, QA_ENGINEER, BUSINESS_ANALYST, PROJECT_MANAGER, ADMIN]
+        default_daily_hours:
+          type: number
+          default: 8.00
+
+    CreateProjectRequest:
+      type: object
+      required: [code, name, start_date, target_end_date]
+      properties:
+        code:
+          type: string
+          example: PRJ-01
+        name:
+          type: string
+          example: Core Banking Platform
+        description:
+          type: string
+        start_date:
+          type: string
+          format: date
+          example: '2026-11-01'
+        target_end_date:
+          type: string
+          format: date
+          example: '2026-12-15'
+        budget_hours:
+          type: number
+          example: 500.00
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        start_date:
+          type: string
+          format: date
+        target_end_date:
+          type: string
+          format: date
+        budget_hours:
+          type: number
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, ON_HOLD, COMPLETED]
+
+    AssignMemberRequest:
+      type: object
+      required: [user_id, project_role]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        project_role:
+          type: string
+          enum: [DEVELOPER, QA, BA, PM]
+        allocation_pct:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 100
+        effective_daily_hours:
+          type: number
+          default: 8.00
+        joined_date:
+          type: string
+          format: date
+
+    CreateTaskRequest:
+      type: object
+      required: [title, required_role, estimated_hours, start_date, due_date]
+      properties:
+        parent_task_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+        assigned_to:
+          type: string
+          format: uuid
+          nullable: true
+        required_role:
+          type: string
+          enum: [DEVELOPER, QA, BA]
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+          default: MEDIUM
+        estimated_hours:
+          type: number
+          minimum: 0.25
+        start_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+
+    FeasibilityResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  format: uuid
+                target_end_date:
+                  type: string
+                  format: date
+                remaining_working_days:
+                  type: integer
+                feasibility_status:
+                  type: string
+                  enum: [ON_TRACK, AT_RISK, CRITICAL_DELAY]
+                projected_completion_date:
+                  type: string
+                  format: date
+                buffer_working_days:
+                  type: integer
+                roles:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      available_capacity_hours:
+                        type: number
+                      remaining_task_hours:
+                        type: number
+                      utilization_pct:
+                        type: number
+                      status:
+                        type: string
+                        enum: [ON_TRACK, AT_RISK, CANNOT_MEET]
+                individual_bottlenecks:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      user_id:
+                        type: string
+                      name:
+                        type: string
+                      allocated_task_hours:
+                        type: number
+                      available_capacity_hours:
+                        type: number
+                      is_overloaded:
+                        type: boolean
