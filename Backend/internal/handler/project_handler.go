@@ -14,10 +14,15 @@ import (
 
 type ProjectHandler struct {
 	projectService *service.ProjectService
+	taskHandler    *TaskHandler
 }
 
 func NewProjectHandler(projectService *service.ProjectService) *ProjectHandler {
 	return &ProjectHandler{projectService: projectService}
+}
+
+func (h *ProjectHandler) SetTaskHandler(taskHandler *TaskHandler) {
+	h.taskHandler = taskHandler
 }
 
 func (h *ProjectHandler) HandleProjects(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +92,24 @@ func (h *ProjectHandler) HandleProjectByID(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		response.JSON(w, http.StatusOK, capDTO, reqID)
+		return
+	}
+
+	// Route /api/v1/projects/:id/tasks
+	if len(parts) >= 2 && parts[1] == "tasks" && h.taskHandler != nil {
+		h.taskHandler.HandleProjectTasks(w, r)
+		return
+	}
+
+	// Route /api/v1/projects/:id/workload
+	if len(parts) >= 2 && parts[1] == "workload" && h.taskHandler != nil {
+		h.taskHandler.HandleProjectWorkload(w, r)
+		return
+	}
+
+	// Route /api/v1/projects/:id/dependencies
+	if len(parts) >= 2 && parts[1] == "dependencies" && h.taskHandler != nil {
+		h.taskHandler.HandleProjectDependencies(w, r)
 		return
 	}
 

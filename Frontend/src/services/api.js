@@ -249,11 +249,12 @@ export async function fetchProjectCapacity(projectId) {
 // Fetch Columns
 export async function fetchColumns() {
   return [
-    { id: "col-backlog", title: "Backlog", color: "#94a3b8", order: 1 },
-    { id: "col-todo", title: "To Do", color: "#60a5fa", order: 2 },
-    { id: "col-inprogress", title: "In Progress", color: "#f59e0b", order: 3 },
-    { id: "col-review", title: "In QA", color: "#a855f7", order: 4 },
-    { id: "col-done", title: "Done", color: "#10b981", order: 5 },
+    { id: "BACKLOG", title: "Backlog", color: "#94a3b8", order: 1 },
+    { id: "TODO", title: "To Do", color: "#60a5fa", order: 2 },
+    { id: "IN_PROGRESS", title: "In Progress", color: "#f59e0b", order: 3 },
+    { id: "CODE_REVIEW", title: "Code Review", color: "#a855f7", order: 4 },
+    { id: "IN_QA", title: "In QA", color: "#38bdf8", order: 5 },
+    { id: "DONE", title: "Done", color: "#10b981", order: 6 },
   ];
 }
 
@@ -267,85 +268,194 @@ export async function fetchTasks(projectId = "proj-1") {
   } catch (err) {
     return [
       {
-        id: "task-1",
-        project_id: "proj-1",
-        column_id: "col-todo",
-        title: "Database CHECK Constraints & Migrations",
-        description: "Verify PostgreSQL schema, timeline bounds, and partial unique timer index.",
-        priority: "High",
-        assignee: "Jordan Lee",
-        required_role: "DEVELOPER",
-        estimated_hours: 10,
-        due_date: "Oct 24",
-      },
-      {
-        id: "task-2",
-        project_id: "proj-1",
-        column_id: "col-inprogress",
-        title: "Bcrypt & JWT Auth Security Service",
-        description: "Password hashing, 15m access token, rotating refresh tokens with revocation.",
-        priority: "Urgent",
-        assignee: "Maya Patel",
-        required_role: "DEVELOPER",
-        estimated_hours: 12,
-        due_date: "Oct 22",
-      },
-      {
-        id: "task-3",
-        project_id: "proj-1",
-        column_id: "col-review",
-        title: "QA Verification: Token Expiration & Replay Attack",
-        description: "Verify that revoked refresh tokens reject replay attempts and lock out attackers.",
-        priority: "Medium",
-        assignee: "Alex Morgan",
-        required_role: "QA",
-        estimated_hours: 6,
-        due_date: "Oct 25",
-      },
-      {
-        id: "task-4",
-        project_id: "proj-1",
-        column_id: "col-done",
-        title: "Clean Architecture Go Repository Scaffolding",
-        description: "Setup internal/domain, internal/service, pkg/middleware, and OpenAPI 3.0 spec.",
-        priority: "Low",
-        assignee: "Taylor Kim",
+        id: "task-101",
+        project_id: projectId,
+        status: "DONE",
+        title: "Define OpenAPI 3.0 & Domain Models",
+        description: "Complete Swagger specification for Auth, Projects, Tasks and Feasibility Engine",
+        priority: "HIGH",
         required_role: "BA",
-        estimated_hours: 8,
-        due_date: "Oct 18",
+        estimated_hours: 16,
+        logged_hours: 16,
+        start_date: "2026-11-01",
+        due_date: "2026-11-05",
+      },
+      {
+        id: "task-102",
+        project_id: projectId,
+        status: "DONE",
+        title: "Implement Clean Architecture & DB Migrations",
+        description: "PostgreSQL versioned schema migrations, strict config loader and repository layers",
+        priority: "HIGH",
+        required_role: "DEVELOPER",
+        estimated_hours: 24,
+        logged_hours: 24,
+        start_date: "2026-11-06",
+        due_date: "2026-11-12",
+      },
+      {
+        id: "task-103",
+        project_id: projectId,
+        status: "DONE",
+        title: "Auth Engine & JWT Token Security",
+        description: "Bcrypt password hashing, 15m JWT access tokens, 7d rotating refresh tokens",
+        priority: "URGENT",
+        required_role: "DEVELOPER",
+        estimated_hours: 20,
+        logged_hours: 18,
+        start_date: "2026-11-13",
+        due_date: "2026-11-18",
+      },
+      {
+        id: "task-104",
+        project_id: projectId,
+        status: "IN_PROGRESS",
+        title: "Task Timeline Range Guard & DAG Cycle Detector",
+        description: "Enforce task dates within project bounds, DFS cycle detector, and developer workload analyzer",
+        priority: "HIGH",
+        required_role: "DEVELOPER",
+        estimated_hours: 24,
+        logged_hours: 8,
+        start_date: "2026-11-19",
+        due_date: "2026-11-26",
+      },
+      {
+        id: "task-105",
+        project_id: projectId,
+        status: "TODO",
+        title: "Quality Gate Test Suite & Zero-Bug CI",
+        description: "Verify all invariant boundary conditions, multi-node cycles, and state machine transitions",
+        priority: "HIGH",
+        required_role: "QA",
+        estimated_hours: 20,
+        logged_hours: 0,
+        start_date: "2026-11-27",
+        due_date: "2026-12-05",
       },
     ];
   }
 }
 
-// Create Task
+// Create Task with 422 Timeline Range check
 export async function createTask(task) {
-  try {
-    const res = await fetch(`${API_BASE}/projects/${task.project_id || "proj-1"}/tasks`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(task),
-    });
-    if (!res.ok) throw new Error("Failed to create task");
-    const json = await res.json();
-    return json.data || json;
-  } catch (err) {
-    return {
-      ...task,
-      id: "task-" + Date.now(),
-      created_at: new Date().toISOString(),
-    };
+  const res = await fetch(`${API_BASE}/projects/${task.project_id || "proj-1"}/tasks`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(task),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    const err = new Error(json?.error?.message || "Failed to create task");
+    err.details = json?.error?.details;
+    err.code = json?.error?.code;
+    throw err;
   }
+  return json.data || json;
 }
 
-// Move Task
-export async function moveTask(taskId, columnId) {
-  return { id: taskId, column_id: columnId };
+// Update Task details
+export async function updateTask(taskId, updateData) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(updateData),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    const err = new Error(json?.error?.message || "Failed to update task");
+    err.details = json?.error?.details;
+    err.code = json?.error?.code;
+    throw err;
+  }
+  return json.data || json;
+}
+
+// Update Task Status State Machine (TSK-021)
+export async function updateTaskStatus(taskId, status, comment = "") {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/status`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ status, comment }),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    const err = new Error(json?.error?.message || "Failed to transition task status");
+    err.details = json?.error?.details;
+    err.code = json?.error?.code;
+    throw err;
+  }
+  return json.data || json;
 }
 
 // Delete Task
 export async function deleteTask(taskId) {
-  return true;
+  const res = await fetch(`${API_BASE}/tasks/${taskId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return res.ok;
+}
+
+// Fetch Task Audit Logs (TSK-021)
+export async function fetchTaskAudit(taskId) {
+  try {
+    const res = await fetch(`${API_BASE}/tasks/${taskId}/audit`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Failed to fetch audit logs");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return [];
+  }
+}
+
+// Fetch Project Dependencies (TSK-019)
+export async function fetchProjectDependencies(projectId) {
+  try {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/dependencies`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Failed to fetch dependencies");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return [];
+  }
+}
+
+// Add Dependency with DAG Cycle Detection (TSK-019)
+export async function addDependency(taskId, dependsOnTaskId, dependencyType = "FS") {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/dependencies`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ depends_on_task_id: dependsOnTaskId, dependency_type: dependencyType }),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    const err = new Error(json?.error?.message || "Failed to add dependency");
+    err.details = json?.error?.details;
+    err.code = json?.error?.code;
+    throw err;
+  }
+  return json.data || json;
+}
+
+// Delete Dependency
+export async function deleteDependency(dependencyId) {
+  const res = await fetch(`${API_BASE}/dependencies/${dependencyId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return res.ok;
+}
+
+// Fetch Developer Daily Workload & Overload Detector (TSK-020)
+export async function fetchProjectWorkload(projectId) {
+  try {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/workload`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Failed to fetch workload");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return [];
+  }
 }
 
 // Fetch Users

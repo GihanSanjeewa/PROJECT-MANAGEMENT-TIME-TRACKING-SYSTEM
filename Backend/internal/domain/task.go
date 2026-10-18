@@ -14,13 +14,15 @@ const (
 	TaskStatusBacklog    TaskStatus = "BACKLOG"
 	TaskStatusTodo       TaskStatus = "TODO"
 	TaskStatusInProgress TaskStatus = "IN_PROGRESS"
+	TaskStatusCodeReview TaskStatus = "CODE_REVIEW"
 	TaskStatusInQA       TaskStatus = "IN_QA"
 	TaskStatusDone       TaskStatus = "DONE"
+	TaskStatusBlocked    TaskStatus = "BLOCKED"
 )
 
 func (s TaskStatus) IsValid() bool {
 	switch s {
-	case TaskStatusBacklog, TaskStatusTodo, TaskStatusInProgress, TaskStatusInQA, TaskStatusDone:
+	case TaskStatusBacklog, TaskStatusTodo, TaskStatusInProgress, TaskStatusCodeReview, TaskStatusInQA, TaskStatusDone, TaskStatusBlocked:
 		return true
 	default:
 		return false
@@ -146,4 +148,100 @@ func (t *Task) RemainingHours() float64 {
 		return 0
 	}
 	return rem
+}
+
+// ValidateStatusTransition implements TSK-021: Task Status State Machine & Hand-off Workflow
+func ValidateStatusTransition(oldStatus, newStatus TaskStatus, userRole string, hasOpenSubtasks bool) error {
+	if oldStatus == newStatus {
+		return nil
+	}
+	if !newStatus.IsValid() {
+		return errcode.NewValidation(fmt.Sprintf("Invalid target task status: %s", newStatus), nil)
+	}
+
+	// Rule: cannot mark DONE if any subtask is open
+	if newStatus == TaskStatusDone && hasOpenSubtasks {
+		return errcode.New(
+			errcode.ErrValidationFailed,
+			"Cannot mark task DONE because one or more child subtasks are still open",
+			422,
+			nil,
+		)
+	}
+
+	// Rule: require QA role or PM/Admin to transition from IN_QA to DONE
+	if oldStatus == TaskStatusInQA && newStatus == TaskStatusDone {
+		roleUpper := strings.ToUpper(userRole)
+		isQAOrLead := strings.Contains(roleUpper, "QA") || strings.Contains(roleUpper, "PM") ||
+			roleUpper == "PROJECT_MANAGER" || roleUpper == "ADMIN"
+		if !isQAOrLead {
+			return errcode.New(
+				errcode.ErrForbidden,
+				"Only QA Engineers, Project Managers, or Admins can verify and mark a task DONE from IN_QA",
+				403,
+				nil,
+			)
+		}
+	}
+
+	// State machine graph
+	validNext := map[TaskStatus][]TaskStatus{
+		TaskStatusBacklog:    {TaskStatusTodo, TaskStatusBlocked},
+		TaskStatusTodo:       {TaskStatusInProgress, TaskStatusBlocked, TaskStatusBacklog},
+		TaskStatusInProgress: {TaskStatusCodeReview, TaskStatusBlocked, TaskStatusTodo},
+		TaskStatusCodeReview: {TaskStatusInQA, TaskStatusInProgress, TaskStatusBlocked},
+		TaskStatusInQA:       {TaskStatusDone, TaskStatusInProgress, TaskStatusBlocked},
+		TaskStatusBlocked:    {TaskStatusBacklog, TaskStatusTodo, TaskStatusInProgress, TaskStatusCodeReview, TaskStatusInQA},
+		TaskStatusDone:       {TaskStatusTodo}, // Allowed to reopen
+	}
+
+	allowed, exists := validNext[oldStatus]
+	if !exists {
+		return errcode.NewValidation(fmt.Sprintf("Unknown source task status: %s", oldStatus), nil)
+	}
+
+	for _, next := range allowed {
+		if next == newStatus {
+			return nil
+		}
+	}
+
+	return errcode.New(
+		errcode.ErrValidationFailed,
+		fmt.Sprintf("Illegal status transition from %s to %s", oldStatus, newStatus),
+		422,
+		map[string]string{"from": string(oldStatus), "to": string(newStatus)},
+	)
+}
+
+// TaskAuditLog stores history of status transitions (TSK-021)
+type TaskAuditLog struct {
+	ID        string     `json:"id"`
+	TaskID    string     `json:"task_id"`
+	ChangedBy string     `json:"changed_by"`
+	OldStatus TaskStatus `json:"old_status"`
+	NewStatus TaskStatus `json:"new_status"`
+	Comment   string     `json:"comment"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+// WorkloadDay represents daily required hours for a person
+type WorkloadDay struct {
+	Date         string  `json:"date"`
+	Hours        float64 `json:"hours"`
+	CapacityHrs  float64 `json:"capacity_hrs"`
+	IsOverloaded bool    `json:"is_overloaded"`
+	ExcessHours  float64 `json:"excess_hours"`
+}
+
+// AssigneeWorkload models developer daily workload & overload detector (TSK-020)
+type AssigneeWorkload struct {
+	UserID           string        `json:"user_id"`
+	UserName         string        `json:"user_name"`
+	Role             string        `json:"role"`
+	DailyCapacity    float64       `json:"daily_capacity"`
+	TotalAssignedHrs float64       `json:"total_assigned_hrs"`
+	IsOverallocated  bool          `json:"is_overallocated"`
+	MaxDailyHours    float64       `json:"max_daily_hours"`
+	DailyBreakdown   []WorkloadDay `json:"daily_breakdown"`
 }

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import KanbanBoard from './components/KanbanBoard';
 import CreateTaskModal from './components/CreateTaskModal';
+import TaskDetailModal from './components/TaskDetailModal';
+import WorkloadModal from './components/WorkloadModal';
 import MicroservicesModal from './components/MicroservicesModal';
 import LoginPage from './components/LoginPage';
 import ProjectTimelineBanner from './components/ProjectTimelineBanner';
@@ -21,8 +23,10 @@ import {
   fetchTasks,
   fetchUsers,
   createTask,
-  moveTask,
+  updateTaskStatus,
   deleteTask,
+  fetchProjectDependencies,
+  fetchProjectWorkload,
   checkServiceHealth,
   getStoredUser,
   logout,
@@ -36,17 +40,20 @@ export default function App() {
   const [projectCapacity, setProjectCapacity] = useState(null);
   const [columns, setColumns] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [dependencies, setDependencies] = useState([]);
+  const [workloads, setWorkloads] = useState([]);
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
+  const [selectedTask, setSelectedTask] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [defaultColumnId, setDefaultColumnId] = useState('col-todo');
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
   const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
   const [isAssignMemberModalOpen, setIsAssignMemberModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
+  const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
 
   // Microservices & Backend live health check
   const [serviceHealth, setServiceHealth] = useState({
@@ -78,16 +85,20 @@ export default function App() {
     init();
   }, [currentUser]);
 
-  // Load project-specific data: tasks, members, and capacity
+  // Load project-specific data: tasks, members, capacity, dependencies, and workload
   const loadProjectDetails = async (projectId) => {
-    const [taskData, memberData, capData] = await Promise.all([
+    const [taskData, memberData, capData, depData, workloadData] = await Promise.all([
       fetchTasks(projectId),
       fetchProjectMembers(projectId),
       fetchProjectCapacity(projectId),
+      fetchProjectDependencies(projectId),
+      fetchProjectWorkload(projectId),
     ]);
     setTasks(taskData);
     setProjectMembers(memberData);
     setProjectCapacity(capData);
+    setDependencies(depData);
+    setWorkloads(workloadData);
   };
 
   // Poll backend health
@@ -134,51 +145,54 @@ export default function App() {
   // Assign Team Member
   const handleAssignMember = async (memberData) => {
     await assignProjectMember(selectedProjectId, memberData);
-    const [members, cap] = await Promise.all([
-      fetchProjectMembers(selectedProjectId),
-      fetchProjectCapacity(selectedProjectId),
-    ]);
-    setProjectMembers(members);
-    setProjectCapacity(cap);
+    await loadProjectDetails(selectedProjectId);
   };
 
   // Remove Team Member
   const handleRemoveMember = async (userId) => {
     await removeProjectMember(selectedProjectId, userId);
-    const [members, cap] = await Promise.all([
-      fetchProjectMembers(selectedProjectId),
-      fetchProjectCapacity(selectedProjectId),
-    ]);
-    setProjectMembers(members);
-    setProjectCapacity(cap);
+    await loadProjectDetails(selectedProjectId);
   };
 
-  // Create Task
+  // Create Task (Phase 4: with Timeline Invariant & Assignee check)
   const handleCreateTask = async (taskData) => {
-    const created = await createTask({
-      ...taskData,
-      project_id: selectedProjectId,
-    });
-    setTasks((prev) => [...prev, created]);
+    await createTask(taskData);
+    await loadProjectDetails(selectedProjectId);
   };
 
-  // Move Task
-  const handleMoveTask = async (taskId, nextColumnId) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, column_id: nextColumnId } : t))
-    );
-    await moveTask(taskId, nextColumnId);
+  // Move Task via State Machine (TSK-021)
+  const handleMoveTask = async (taskId, nextStatus) => {
+    try {
+      await updateTaskStatus(taskId, nextStatus, 'Moved on Kanban Board');
+      await loadProjectDetails(selectedProjectId);
+    } catch (err) {
+      alert(`Status Transition Blocked: ${err.message}`);
+    }
   };
 
   // Delete Task
   const handleDeleteTask = async (taskId) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
     await deleteTask(taskId);
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const workloadData = await fetchProjectWorkload(selectedProjectId);
+    setWorkloads(workloadData);
   };
 
-  const handleOpenCreateModal = (colId = 'col-todo') => {
-    setDefaultColumnId(colId);
+  const handleOpenCreateModal = () => {
     setIsCreateModalOpen(true);
+  };
+
+  const handleSelectTask = (task) => {
+    setSelectedTask(task);
+  };
+
+  const handleTaskUpdated = async () => {
+    await loadProjectDetails(selectedProjectId);
+    if (selectedTask) {
+      const refreshedTasks = await fetchTasks(selectedProjectId);
+      const updated = refreshedTasks.find((t) => t.id === selectedTask.id);
+      if (updated) setSelectedTask(updated);
+    }
   };
 
   const handleLogout = async () => {
@@ -195,10 +209,11 @@ export default function App() {
   const filteredTasks = tasks.filter((t) => {
     const query = searchTerm.toLowerCase();
     return (
-      t.title.toLowerCase().includes(query) ||
+      (t.title && t.title.toLowerCase().includes(query)) ||
       (t.description && t.description.toLowerCase().includes(query)) ||
       (t.assignee && t.assignee.toLowerCase().includes(query)) ||
-      (t.priority && t.priority.toLowerCase().includes(query))
+      (t.priority && t.priority.toLowerCase().includes(query)) ||
+      (t.required_role && t.required_role.toLowerCase().includes(query))
     );
   });
 
@@ -236,6 +251,7 @@ export default function App() {
         onOpenRoster={() => setIsRosterModalOpen(true)}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenCreateProject={() => setIsCreateProjectModalOpen(true)}
+        onOpenWorkload={() => setIsWorkloadModalOpen(true)}
         currentUser={currentUser}
       />
 
@@ -245,15 +261,35 @@ export default function App() {
         onMoveTask={handleMoveTask}
         onDeleteTask={handleDeleteTask}
         onOpenCreateModal={handleOpenCreateModal}
+        onSelectTask={handleSelectTask}
       />
 
+      {/* Task Creation Modal with Phase 4 Timeline Enforcements */}
       <CreateTaskModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        columns={columns}
-        users={users}
-        defaultColumnId={defaultColumnId}
+        project={currentProject}
+        members={projectMembers}
         onCreate={handleCreateTask}
+      />
+
+      {/* Task Detail Modal: State Machine, Audit Log & DAG Dependencies */}
+      <TaskDetailModal
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        task={selectedTask}
+        allTasks={tasks}
+        dependencies={dependencies}
+        users={users}
+        currentUser={currentUser}
+        onTaskUpdated={handleTaskUpdated}
+      />
+
+      {/* Developer Daily Workload & Overload Detector (TSK-020) */}
+      <WorkloadModal
+        isOpen={isWorkloadModalOpen}
+        onClose={() => setIsWorkloadModalOpen(false)}
+        workloads={workloads}
       />
 
       <MicroservicesModal

@@ -7,6 +7,7 @@ export default function ProjectTimelineBanner({
   onOpenRoster,
   onOpenSettings,
   onOpenCreateProject,
+  onOpenWorkload,
   currentUser,
 }) {
   const isPMOrAdmin =
@@ -35,6 +36,11 @@ export default function ProjectTimelineBanner({
           <button className="btn-secondary" onClick={onOpenRoster} title="View team members & capacity by role">
             <Users size={15} />
             <span>Team Roster</span>
+          </button>
+
+          <button className="btn-secondary" onClick={onOpenWorkload} title="Developer Daily Workload & Overload Detector">
+            <Clock size={15} color="#f59e0b" />
+            <span>Workload</span>
           </button>
 
           {isPMOrAdmin && (

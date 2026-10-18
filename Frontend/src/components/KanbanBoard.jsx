@@ -2,11 +2,25 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 import TaskCard from './TaskCard';
 
-export default function KanbanBoard({ columns, tasks, onMoveTask, onDeleteTask, onOpenCreateModal }) {
+export default function KanbanBoard({
+  columns,
+  tasks,
+  onMoveTask,
+  onDeleteTask,
+  onOpenCreateModal,
+  onSelectTask,
+}) {
   return (
     <div className="board-container">
       {columns.map((column) => {
-        const columnTasks = tasks.filter((t) => t.column_id === column.id);
+        const columnTasks = tasks.filter((t) => {
+          if (t.status) return t.status.toUpperCase() === column.id.toUpperCase();
+          if (t.column_id) {
+            const mapped = t.column_id.replace('col-', '').toUpperCase();
+            return mapped === column.id.toUpperCase() || t.column_id === column.id;
+          }
+          return column.id === 'TODO';
+        });
 
         return (
           <div key={column.id} className="kanban-column">
@@ -27,7 +41,14 @@ export default function KanbanBoard({ columns, tasks, onMoveTask, onDeleteTask, 
 
             <div className="column-tasks">
               {columnTasks.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '30px 10px',
+                    color: 'var(--text-dim)',
+                    fontSize: '0.8rem',
+                  }}
+                >
                   No tasks in this column
                 </div>
               ) : (
@@ -38,6 +59,7 @@ export default function KanbanBoard({ columns, tasks, onMoveTask, onDeleteTask, 
                     columns={columns}
                     onMove={onMoveTask}
                     onDelete={onDeleteTask}
+                    onClick={onSelectTask}
                   />
                 ))
               )}

@@ -248,3 +248,16 @@ func (r *InMemoryProjectRepository) GetTaskDateBounds(ctx context.Context, proje
 
 	return minStart, maxDue, taskIDs, nil
 }
+
+func (r *InMemoryProjectRepository) SyncTask(t *domain.Task) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	copy := *t
+	r.tasks[t.ID] = &copy
+}
+
+func (r *InMemoryProjectRepository) RemoveTask(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.tasks, id)
+}

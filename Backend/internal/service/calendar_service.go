@@ -12,6 +12,21 @@ func NewCalendarService() *CalendarService {
 	return &CalendarService{}
 }
 
+// IsWorkingDay checks if a given date is a weekday and not a company holiday
+func (c *CalendarService) IsWorkingDay(date time.Time, holidays []*domain.CompanyHoliday) bool {
+	weekday := date.Weekday()
+	if weekday == time.Saturday || weekday == time.Sunday {
+		return false
+	}
+	dateKey := date.Format("2006-01-02")
+	for _, h := range holidays {
+		if h.HolidayDate.Format("2006-01-02") == dateKey {
+			return false
+		}
+	}
+	return true
+}
+
 // CalculateWorkingDays counts net business days in [startDate, endDate]
 // strictly excluding Saturdays, Sundays, and matching company holidays.
 func (c *CalendarService) CalculateWorkingDays(startDate, endDate time.Time, holidays []*domain.CompanyHoliday) int {
