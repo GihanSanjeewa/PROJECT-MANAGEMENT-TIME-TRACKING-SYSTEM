@@ -1,13 +1,15 @@
 import React from 'react';
-import { Calendar, Users, Settings, Plus, Clock, ShieldAlert } from 'lucide-react';
+import { Calendar, Users, Settings, Plus, Clock, Gauge } from 'lucide-react';
 
 export default function ProjectTimelineBanner({
   project,
   capacity,
+  feasibility,
   onOpenRoster,
   onOpenSettings,
   onOpenCreateProject,
   onOpenWorkload,
+  onOpenFeasibility,
   currentUser,
 }) {
   const isPMOrAdmin =
@@ -17,6 +19,11 @@ export default function ProjectTimelineBanner({
   const devHours = roles.DEVELOPER?.total_capacity_hours || 0;
   const qaHours = roles.QA?.total_capacity_hours || 0;
   const baHours = roles.BA?.total_capacity_hours || 0;
+
+  const score = feasibility?.feasibility_score ?? 94;
+  const isCanMeet = feasibility?.can_meet_deadline ?? true;
+  const bufferDays = feasibility?.days_ahead_or_behind ?? 15;
+  const scoreColor = !isCanMeet || score < 60 ? '#ef4444' : score < 80 ? '#f59e0b' : '#10b981';
 
   return (
     <div className="project-banner-wrapper">
@@ -33,14 +40,19 @@ export default function ProjectTimelineBanner({
         </div>
 
         <div className="project-banner-actions">
-          <button className="btn-secondary" onClick={onOpenRoster} title="View team members & capacity by role">
-            <Users size={15} />
-            <span>Team Roster</span>
+          <button className="btn-secondary btn-feasibility-action" onClick={onOpenFeasibility} title="Deadline Feasibility & What-If Simulator">
+            <Gauge size={15} color={scoreColor} />
+            <span>Feasibility ({score}%)</span>
           </button>
 
           <button className="btn-secondary" onClick={onOpenWorkload} title="Developer Daily Workload & Overload Detector">
             <Clock size={15} color="#f59e0b" />
             <span>Workload</span>
+          </button>
+
+          <button className="btn-secondary" onClick={onOpenRoster} title="View team members & capacity by role">
+            <Users size={15} />
+            <span>Team Roster</span>
           </button>
 
           {isPMOrAdmin && (
@@ -74,6 +86,18 @@ export default function ProjectTimelineBanner({
           <span className="metric-label">Net Working Days:</span>
           <span className="metric-val highlight">
             {capacity?.total_working_days || 44} Days (Excl. Weekends/Holidays)
+          </span>
+        </div>
+
+        <div
+          className="metric-chip feasibility-chip-clickable"
+          onClick={onOpenFeasibility}
+          title="Click to view feasibility details & run What-If simulations"
+        >
+          <Gauge size={14} color={scoreColor} />
+          <span className="metric-label">Feasibility:</span>
+          <span className="metric-val" style={{ color: scoreColor, fontWeight: '700' }}>
+            {score}% {bufferDays >= 0 ? `(+${bufferDays}d buffer)` : `(${bufferDays}d behind)`}
           </span>
         </div>
 

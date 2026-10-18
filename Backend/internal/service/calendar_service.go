@@ -61,3 +61,20 @@ func (c *CalendarService) CalculateWorkingDays(startDate, endDate time.Time, hol
 
 	return workingDays
 }
+
+// AddWorkingDays projects a date forward by a number of net business days, skipping weekends and holidays
+func (c *CalendarService) AddWorkingDays(startDate time.Time, workingDays int, holidays []*domain.CompanyHoliday) time.Time {
+	curr := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
+	if workingDays <= 0 {
+		return curr
+	}
+
+	remaining := workingDays
+	for remaining > 0 {
+		curr = curr.AddDate(0, 0, 1)
+		if c.IsWorkingDay(curr, holidays) {
+			remaining--
+		}
+	}
+	return curr
+}

@@ -53,6 +53,7 @@ func main() {
 	userService := service.NewUserService(userRepo, authService)
 	projectService := service.NewProjectService(projectRepo, userRepo, calendarServ)
 	taskService := service.NewTaskService(taskRepo, projectRepo, userRepo, calendarServ)
+	feasibilityService := service.NewFeasibilityService(projectRepo, taskRepo, userRepo, calendarServ)
 
 	// Seed initial data (Admins, Team Members, Initial Project, and Phase 4 Tasks)
 	seedInitialData(context.Background(), userService, projectService, taskService)
@@ -62,7 +63,9 @@ func main() {
 	userHandler := handler.NewUserHandler(userService)
 	projectHandler := handler.NewProjectHandler(projectService)
 	taskHandler := handler.NewTaskHandler(taskService)
+	feasibilityHandler := handler.NewFeasibilityHandler(feasibilityService)
 	projectHandler.SetTaskHandler(taskHandler)
+	projectHandler.SetFeasibilityHandler(feasibilityHandler)
 
 	mux := http.NewServeMux()
 

@@ -11,6 +11,7 @@ import TeamRosterModal from './components/TeamRosterModal';
 import AssignMemberModal from './components/AssignMemberModal';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
 import CreateProjectModal from './components/CreateProjectModal';
+import FeasibilityModal from './components/FeasibilityModal';
 import {
   fetchProjects,
   createProject,
@@ -27,6 +28,7 @@ import {
   deleteTask,
   fetchProjectDependencies,
   fetchProjectWorkload,
+  fetchProjectFeasibility,
   checkServiceHealth,
   getStoredUser,
   logout,
@@ -42,6 +44,7 @@ export default function App() {
   const [tasks, setTasks] = useState([]);
   const [dependencies, setDependencies] = useState([]);
   const [workloads, setWorkloads] = useState([]);
+  const [feasibility, setFeasibility] = useState(null);
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -54,6 +57,7 @@ export default function App() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
   const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
+  const [isFeasibilityModalOpen, setIsFeasibilityModalOpen] = useState(false);
 
   // Microservices & Backend live health check
   const [serviceHealth, setServiceHealth] = useState({
@@ -85,20 +89,22 @@ export default function App() {
     init();
   }, [currentUser]);
 
-  // Load project-specific data: tasks, members, capacity, dependencies, and workload
+  // Load project-specific data: tasks, members, capacity, dependencies, workload, and feasibility
   const loadProjectDetails = async (projectId) => {
-    const [taskData, memberData, capData, depData, workloadData] = await Promise.all([
+    const [taskData, memberData, capData, depData, workloadData, feasData] = await Promise.all([
       fetchTasks(projectId),
       fetchProjectMembers(projectId),
       fetchProjectCapacity(projectId),
       fetchProjectDependencies(projectId),
       fetchProjectWorkload(projectId),
+      fetchProjectFeasibility(projectId).catch(() => null),
     ]);
     setTasks(taskData);
     setProjectMembers(memberData);
     setProjectCapacity(capData);
     setDependencies(depData);
     setWorkloads(workloadData);
+    setFeasibility(feasData);
   };
 
   // Poll backend health
@@ -248,10 +254,12 @@ export default function App() {
       <ProjectTimelineBanner
         project={currentProject}
         capacity={projectCapacity}
+        feasibility={feasibility}
         onOpenRoster={() => setIsRosterModalOpen(true)}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenCreateProject={() => setIsCreateProjectModalOpen(true)}
         onOpenWorkload={() => setIsWorkloadModalOpen(true)}
+        onOpenFeasibility={() => setIsFeasibilityModalOpen(true)}
         currentUser={currentUser}
       />
 
@@ -290,6 +298,16 @@ export default function App() {
         isOpen={isWorkloadModalOpen}
         onClose={() => setIsWorkloadModalOpen(false)}
         workloads={workloads}
+      />
+
+      {/* Feasibility & What-If Simulator (TSK-022 - TSK-025) */}
+      <FeasibilityModal
+        isOpen={isFeasibilityModalOpen}
+        onClose={() => setIsFeasibilityModalOpen(false)}
+        feasibility={feasibility}
+        project={currentProject}
+        tasks={tasks}
+        onRefresh={() => loadProjectDetails(selectedProjectId)}
       />
 
       <MicroservicesModal

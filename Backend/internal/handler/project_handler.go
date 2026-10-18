@@ -13,8 +13,9 @@ import (
 )
 
 type ProjectHandler struct {
-	projectService *service.ProjectService
-	taskHandler    *TaskHandler
+	projectService     *service.ProjectService
+	taskHandler        *TaskHandler
+	feasibilityHandler *FeasibilityHandler
 }
 
 func NewProjectHandler(projectService *service.ProjectService) *ProjectHandler {
@@ -23,6 +24,10 @@ func NewProjectHandler(projectService *service.ProjectService) *ProjectHandler {
 
 func (h *ProjectHandler) SetTaskHandler(taskHandler *TaskHandler) {
 	h.taskHandler = taskHandler
+}
+
+func (h *ProjectHandler) SetFeasibilityHandler(feasibilityHandler *FeasibilityHandler) {
+	h.feasibilityHandler = feasibilityHandler
 }
 
 func (h *ProjectHandler) HandleProjects(w http.ResponseWriter, r *http.Request) {
@@ -110,6 +115,12 @@ func (h *ProjectHandler) HandleProjectByID(w http.ResponseWriter, r *http.Reques
 	// Route /api/v1/projects/:id/dependencies
 	if len(parts) >= 2 && parts[1] == "dependencies" && h.taskHandler != nil {
 		h.taskHandler.HandleProjectDependencies(w, r)
+		return
+	}
+
+	// Route /api/v1/projects/:id/feasibility
+	if len(parts) >= 2 && parts[1] == "feasibility" && h.feasibilityHandler != nil {
+		h.feasibilityHandler.HandleProjectFeasibility(w, r)
 		return
 	}
 
