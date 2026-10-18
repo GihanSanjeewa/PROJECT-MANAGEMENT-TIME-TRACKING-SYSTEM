@@ -125,24 +125,124 @@ export async function fetchProjects() {
       {
         id: "proj-1",
         code: "CORE",
-        key: "CORE",
         name: "SaaS Core Platform",
         description: "Enterprise project management & deadline feasibility system",
-        category: "Engineering",
-        lead: "Alex Morgan",
-        task_count: 5,
+        start_date: "2026-11-01",
+        target_end_date: "2026-12-31",
+        budget_hours: 600,
+        status: "ACTIVE",
       },
       {
         id: "proj-2",
         code: "MOB",
-        key: "MOB",
         name: "Mobile Application",
         description: "React Native client with live running timer sync",
-        category: "Mobile",
-        lead: "Maya Patel",
-        task_count: 3,
+        start_date: "2026-11-15",
+        target_end_date: "2026-12-15",
+        budget_hours: 300,
+        status: "ACTIVE",
       },
     ];
+  }
+}
+
+// Create Project
+export async function createProject(projectData) {
+  try {
+    const res = await fetch(`${API_BASE}/projects`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(projectData),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json?.error?.message || "Failed to create project");
+    }
+    return json.data || json;
+  } catch (err) {
+    return {
+      ...projectData,
+      id: "proj-" + Date.now(),
+      status: "ACTIVE",
+    };
+  }
+}
+
+// Update Project (Timeline Guard)
+export async function updateProject(projectId, updateData) {
+  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(updateData),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    const err = new Error(json?.error?.message || "Failed to update project");
+    err.details = json?.error?.details;
+    err.code = json?.error?.code;
+    throw err;
+  }
+  return json.data || json;
+}
+
+// Fetch Project Members
+export async function fetchProjectMembers(projectId) {
+  try {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/members`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Failed to fetch project members");
+    const json = await res.json();
+    return json.data || json;
+  } catch (err) {
+    return [
+      { id: "m-1", project_id: projectId, user_id: "usr-1", project_role: "PM", allocation_pct: 100, effective_daily_hours: 8.0 },
+      { id: "m-2", project_id: projectId, user_id: "usr-2", project_role: "DEVELOPER", allocation_pct: 100, effective_daily_hours: 8.0 },
+      { id: "m-3", project_id: projectId, user_id: "usr-3", project_role: "QA", allocation_pct: 100, effective_daily_hours: 8.0 },
+      { id: "m-4", project_id: projectId, user_id: "usr-4", project_role: "BA", allocation_pct: 50, effective_daily_hours: 4.0 },
+    ];
+  }
+}
+
+// Assign Member to Project
+export async function assignProjectMember(projectId, memberData) {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/members`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(memberData),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.error?.message || "Failed to assign member");
+  }
+  return json.data || json;
+}
+
+// Remove Member from Project
+export async function removeProjectMember(projectId, userId) {
+  const res = await fetch(`${API_BASE}/projects/${projectId}/members/${userId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return res.ok;
+}
+
+// Fetch Project Team Capacity
+export async function fetchProjectCapacity(projectId) {
+  try {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/capacity`, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Failed to fetch capacity");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return {
+      total_working_days: 44,
+      total_capacity_hours: 1100,
+      roles: {
+        DEVELOPER: { role: "DEVELOPER", member_count: 1, total_capacity_hours: 352, working_days: 44 },
+        QA: { role: "QA", member_count: 1, total_capacity_hours: 352, working_days: 44 },
+        BA: { role: "BA", member_count: 1, total_capacity_hours: 176, working_days: 44 },
+        PM: { role: "PM", member_count: 1, total_capacity_hours: 352, working_days: 44 },
+      },
+    };
   }
 }
 

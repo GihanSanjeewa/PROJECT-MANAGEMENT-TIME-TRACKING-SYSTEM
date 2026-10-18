@@ -899,3 +899,329 @@ body {
   text-align: center;
 }
 
+/* ==========================================================================
+   Phase 3: Project Timeline & Team Roster Styles
+   ========================================================================== */
+.project-banner-wrapper {
+  padding: 24px 32px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(13, 18, 31, 0.4);
+}
+
+.project-banner-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.project-main-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.project-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-title-row h1 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.project-code-badge {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.project-status-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-draft {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.status-on_hold {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.status-completed {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.project-desc-text {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  max-width: 700px;
+}
+
+.project-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Timeline Metrics Strip */
+.timeline-metrics-strip {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  padding: 10px 18px;
+  border-radius: var(--radius-lg);
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+
+.metric-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.metric-val {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.metric-val.highlight {
+  color: #34d399;
+  font-weight: 700;
+}
+
+.role-capacity-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.capacity-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.capacity-pill.dev {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.capacity-pill.qa {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.capacity-pill.ba {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Team Roster Modal Styles */
+.roster-capacity-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.roster-summary-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  padding: 14px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-title {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.summary-value.highlight {
+  color: #818cf8;
+}
+
+.roster-roles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.roster-role-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roster-role-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 6px;
+}
+
+.roster-role-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roster-role-hours {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.roster-empty-notice {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  padding: 8px 4px;
+  font-style: italic;
+}
+
+.roster-members-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.roster-member-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.member-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-email {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-allocation-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: #38bdf8;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Timeline Conflict Alert */
+.timeline-conflict-alert {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 14px;
+  border-radius: var(--radius-md);
+  color: #fca5a5;
+  margin-bottom: 16px;
+}
+
+.timeline-guard-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.08);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  margin-top: 6px;
+}
+
+

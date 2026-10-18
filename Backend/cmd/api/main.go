@@ -42,17 +42,21 @@ func main() {
 	// Repositories
 	userRepo := repository.NewInMemoryUserRepository()
 	tokenStore := repository.NewInMemoryTokenStore()
+	projectRepo := repository.NewInMemoryProjectRepository()
 
 	// Services
+	calendarServ := service.NewCalendarService()
 	authService := service.NewAuthService(userRepo, tokenStore, cfg.JWTSecret)
 	userService := service.NewUserService(userRepo, authService)
+	projectService := service.NewProjectService(projectRepo, userRepo, calendarServ)
 
-	// Seed an initial Admin and Team Members with real bcrypt hashes
-	seedInitialUsers(context.Background(), userService)
+	// Seed initial data (Admins, Team Members, and Initial Project)
+	seedInitialData(context.Background(), userService, projectService)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, userService)
 	userHandler := handler.NewUserHandler(userService)
+	projectHandler := handler.NewProjectHandler(projectService)
 
 	mux := http.NewServeMux()
 
@@ -88,6 +92,10 @@ func main() {
 	// /users collection & member management
 	mux.Handle("/api/v1/users", authMiddleware(http.HandlerFunc(userHandler.HandleUsers)))
 	mux.Handle("/api/v1/users/", authMiddleware(http.HandlerFunc(userHandler.HandleUserByID)))
+
+	// /projects collection, timeline & capacity
+	mux.Handle("/api/v1/projects", authMiddleware(http.HandlerFunc(projectHandler.HandleProjects)))
+	mux.Handle("/api/v1/projects/", authMiddleware(http.HandlerFunc(projectHandler.HandleProjectByID)))
 
 	// Assemble global middleware: CORS -> RequestID -> Logger -> Recovery
 	rootHandler := middleware.CORS(
@@ -140,7 +148,7 @@ func main() {
 	slog.Info("Server stopped cleanly.")
 }
 
-func seedInitialUsers(ctx context.Context, userService *service.UserService) {
+func seedInitialData(ctx context.Context, userService *service.UserService, projectService *service.ProjectService) {
 	seeds := []service.CreateUserDTO{
 		{
 			Email:             "alex.pm@pulseflow.io",
@@ -172,7 +180,70 @@ func seedInitialUsers(ctx context.Context, userService *service.UserService) {
 		},
 	}
 
+	createdUsers := make(map[string]*domain.User)
 	for _, s := range seeds {
-		_, _ = userService.Create(ctx, s)
+		u, err := userService.Create(ctx, s)
+		if err == nil {
+			createdUsers[s.Email] = u
+		}
+	}
+
+	// Seed Initial Project
+	now := time.Now().UTC()
+	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 2, 0) // 2 months timeline
+
+	proj, err := projectService.Create(ctx, service.CreateProjectDTO{
+		Code:          "CORE",
+		Name:          "SaaS Core Platform",
+		Description:   "High-performance distributed project management & feasibility engine",
+		StartDate:     start,
+		TargetEndDate: end,
+		BudgetHours:   600.0,
+		CreatedBy:     createdUsers["alex.pm@pulseflow.io"].ID,
+	})
+
+	if err == nil && proj != nil {
+		// Assign team members to project
+		if dev, ok := createdUsers["jordan.dev@pulseflow.io"]; ok {
+			_, _ = projectService.AddMember(ctx, service.AssignMemberDTO{
+				ProjectID:           proj.ID,
+				UserID:              dev.ID,
+				ProjectRole:         domain.ProjectRoleDeveloper,
+				AllocationPct:       100,
+				EffectiveDailyHours: 8.0,
+				JoinedDate:          start,
+			})
+		}
+		if qa, ok := createdUsers["maya.qa@pulseflow.io"]; ok {
+			_, _ = projectService.AddMember(ctx, service.AssignMemberDTO{
+				ProjectID:           proj.ID,
+				UserID:              qa.ID,
+				ProjectRole:         domain.ProjectRoleQA,
+				AllocationPct:       100,
+				EffectiveDailyHours: 8.0,
+				JoinedDate:          start,
+			})
+		}
+		if ba, ok := createdUsers["taylor.ba@pulseflow.io"]; ok {
+			_, _ = projectService.AddMember(ctx, service.AssignMemberDTO{
+				ProjectID:           proj.ID,
+				UserID:              ba.ID,
+				ProjectRole:         domain.ProjectRoleBA,
+				AllocationPct:       50, // Part-time 50% allocation
+				EffectiveDailyHours: 4.0,
+				JoinedDate:          start,
+			})
+		}
+		if pm, ok := createdUsers["alex.pm@pulseflow.io"]; ok {
+			_, _ = projectService.AddMember(ctx, service.AssignMemberDTO{
+				ProjectID:           proj.ID,
+				UserID:              pm.ID,
+				ProjectRole:         domain.ProjectRolePM,
+				AllocationPct:       100,
+				EffectiveDailyHours: 8.0,
+				JoinedDate:          start,
+			})
+		}
 	}
 }
