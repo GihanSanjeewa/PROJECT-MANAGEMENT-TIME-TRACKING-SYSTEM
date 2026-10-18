@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import KanbanBoard from './components/KanbanBoard';
 import CreateTaskModal from './components/CreateTaskModal';
 import MicroservicesModal from './components/MicroservicesModal';
+import LoginPage from './components/LoginPage';
 import {
   fetchProjects,
   fetchColumns,
@@ -11,11 +12,13 @@ import {
   createTask,
   moveTask,
   deleteTask,
-  fetchHealth,
   checkServiceHealth,
+  getStoredUser,
+  logout,
 } from './services/api';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('proj-1');
   const [columns, setColumns] = useState([]);
@@ -28,7 +31,7 @@ export default function App() {
   const [defaultColumnId, setDefaultColumnId] = useState('col-todo');
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
 
-  // Microservices live health check
+  // Microservices & Backend live health check
   const [serviceHealth, setServiceHealth] = useState({
     gateway: false,
     user: false,
@@ -36,8 +39,10 @@ export default function App() {
     task: false,
   });
 
-  // Initial Data Load
+  // Initial Data Load (when authenticated)
   useEffect(() => {
+    if (!currentUser) return;
+
     async function init() {
       const [projData, colData, taskData, userData] = await Promise.all([
         fetchProjects(),
@@ -52,18 +57,18 @@ export default function App() {
       setUsers(userData);
     }
     init();
-  }, []);
+  }, [currentUser]);
 
-  // Poll service health
+  // Poll backend health
   useEffect(() => {
     async function pingServices() {
-      const [gw, usr, prj, tsk] = await Promise.all([
+      const [api8080, gw, usr, prj] = await Promise.all([
+        checkServiceHealth(8080),
         checkServiceHealth(8000),
         checkServiceHealth(8001),
         checkServiceHealth(8002),
-        checkServiceHealth(8003),
       ]);
-      setServiceHealth({ gateway: gw, user: usr, project: prj, task: tsk });
+      setServiceHealth({ gateway: api8080 || gw, user: usr, project: prj, task: api8080 });
     }
     pingServices();
     const interval = setInterval(pingServices, 5000);
@@ -105,6 +110,16 @@ export default function App() {
     setIsCreateModalOpen(true);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    setCurrentUser(null);
+  };
+
+  // If user is not authenticated, render LoginPage
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={(user) => setCurrentUser(user)} />;
+  }
+
   // Filter tasks by search
   const filteredTasks = tasks.filter((t) => {
     const query = searchTerm.toLowerCase();
@@ -119,8 +134,9 @@ export default function App() {
   const currentProject =
     projects.find((p) => p.id === selectedProjectId) || {
       name: 'PulseFlow SaaS Core',
+      code: 'CORE',
       key: 'CORE',
-      description: 'Distributed Agile Project Management System powered by Go Microservices & React',
+      description: 'Distributed Agile Project Management System powered by Go Clean Architecture & React',
     };
 
   return (
@@ -134,20 +150,22 @@ export default function App() {
         onOpenCreateModal={handleOpenCreateModal}
         onOpenServicesModal={() => setIsServicesModalOpen(true)}
         isGatewayOnline={serviceHealth.gateway}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       <div className="project-banner">
         <div className="project-info">
           <h1>
             <span>{currentProject.name}</span>
-            <span className="project-key">{currentProject.key}</span>
+            <span className="project-key">{currentProject.code || currentProject.key}</span>
           </h1>
           <p className="project-desc">{currentProject.description}</p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="btn-secondary" onClick={() => setIsServicesModalOpen(true)}>
-            View Architecture (:8000)
+            View Backend Status (:8080)
           </button>
         </div>
       </div>
