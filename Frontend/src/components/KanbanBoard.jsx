@@ -9,6 +9,9 @@ export default function KanbanBoard({
   onDeleteTask,
   onOpenCreateModal,
   onSelectTask,
+  activeTimer,
+  onStartTimer,
+  onStopTimer,
 }) {
   return (
     <div className="board-container">
@@ -60,6 +63,9 @@ export default function KanbanBoard({
                     onMove={onMoveTask}
                     onDelete={onDeleteTask}
                     onClick={onSelectTask}
+                    activeTimer={activeTimer}
+                    onStartTimer={onStartTimer}
+                    onStopTimer={onStopTimer}
                   />
                 ))
               )}

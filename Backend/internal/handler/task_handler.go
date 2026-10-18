@@ -14,11 +14,16 @@ import (
 )
 
 type TaskHandler struct {
-	taskService *service.TaskService
+	taskService    *service.TaskService
+	timeLogHandler *TimeLogHandler
 }
 
 func NewTaskHandler(taskService *service.TaskService) *TaskHandler {
 	return &TaskHandler{taskService: taskService}
+}
+
+func (h *TaskHandler) SetTimeLogHandler(tlh *TimeLogHandler) {
+	h.timeLogHandler = tlh
 }
 
 type CreateTaskRequest struct {
@@ -134,6 +139,20 @@ func (h *TaskHandler) HandleTaskByID(w http.ResponseWriter, r *http.Request) {
 			return
 		case "dependencies":
 			h.handleTaskDependencies(w, r, taskID, reqID)
+			return
+		case "timer":
+			if h.timeLogHandler != nil && len(parts) >= 5 && parts[4] == "start" {
+				h.timeLogHandler.HandleTaskTimer(w, r, taskID)
+				return
+			}
+			response.Error(w, errcode.NewNotFound("Unknown timer sub-resource"), reqID)
+			return
+		case "timelogs":
+			if h.timeLogHandler != nil {
+				h.timeLogHandler.HandleTaskTimeLogs(w, r, taskID)
+				return
+			}
+			response.Error(w, errcode.NewNotFound("TimeLog handler not configured"), reqID)
 			return
 		default:
 			response.Error(w, errcode.NewNotFound("Unknown task sub-resource"), reqID)

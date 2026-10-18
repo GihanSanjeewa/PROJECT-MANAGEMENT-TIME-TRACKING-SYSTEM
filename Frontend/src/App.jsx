@@ -12,6 +12,8 @@ import AssignMemberModal from './components/AssignMemberModal';
 import ProjectSettingsModal from './components/ProjectSettingsModal';
 import CreateProjectModal from './components/CreateProjectModal';
 import FeasibilityModal from './components/FeasibilityModal';
+import LogTimeModal from './components/LogTimeModal';
+import TimesheetModal from './components/TimesheetModal';
 import {
   fetchProjects,
   createProject,
@@ -29,6 +31,9 @@ import {
   fetchProjectDependencies,
   fetchProjectWorkload,
   fetchProjectFeasibility,
+  startTimer,
+  stopTimer,
+  fetchActiveTimer,
   checkServiceHealth,
   getStoredUser,
   logout,
@@ -45,11 +50,13 @@ export default function App() {
   const [dependencies, setDependencies] = useState([]);
   const [workloads, setWorkloads] = useState([]);
   const [feasibility, setFeasibility] = useState(null);
+  const [activeTimer, setActiveTimer] = useState(null);
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
   const [selectedTask, setSelectedTask] = useState(null);
+  const [logTimeTask, setLogTimeTask] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
   const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
@@ -58,6 +65,8 @@ export default function App() {
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
   const [isWorkloadModalOpen, setIsWorkloadModalOpen] = useState(false);
   const [isFeasibilityModalOpen, setIsFeasibilityModalOpen] = useState(false);
+  const [isTimesheetModalOpen, setIsTimesheetModalOpen] = useState(false);
+  const [isLogTimeModalOpen, setIsLogTimeModalOpen] = useState(false);
 
   // Microservices & Backend live health check
   const [serviceHealth, setServiceHealth] = useState({
@@ -72,15 +81,17 @@ export default function App() {
     if (!currentUser) return;
 
     async function init() {
-      const [projData, colData, userData] = await Promise.all([
+      const [projData, colData, userData, timerData] = await Promise.all([
         fetchProjects(),
         fetchColumns(),
         fetchUsers(),
+        fetchActiveTimer().catch(() => null),
       ]);
 
       setProjects(projData);
       setColumns(colData);
       setUsers(userData);
+      setActiveTimer(timerData);
 
       const activeProjId = projData.length > 0 ? projData[0].id : 'proj-1';
       setSelectedProjectId(activeProjId);
@@ -192,6 +203,31 @@ export default function App() {
     setSelectedTask(task);
   };
 
+  // Live Timer Handlers (TSK-026, TSK-028)
+  const handleStartTimer = async (taskId, taskTitle) => {
+    try {
+      const timer = await startTimer(taskId, `Live session on ${taskTitle || taskId}`);
+      setActiveTimer(timer);
+    } catch (err) {
+      alert(err.message || 'Failed to start timer');
+    }
+  };
+
+  const handleStopTimer = async () => {
+    try {
+      await stopTimer();
+      setActiveTimer(null);
+      await loadProjectDetails(selectedProjectId);
+    } catch (err) {
+      alert(err.message || 'Failed to stop timer');
+    }
+  };
+
+  const handleOpenLogTimeModal = (task) => {
+    setLogTimeTask(task);
+    setIsLogTimeModalOpen(true);
+  };
+
   const handleTaskUpdated = async () => {
     await loadProjectDetails(selectedProjectId);
     if (selectedTask) {
@@ -199,6 +235,8 @@ export default function App() {
       const updated = refreshedTasks.find((t) => t.id === selectedTask.id);
       if (updated) setSelectedTask(updated);
     }
+    const currentActiveTimer = await fetchActiveTimer();
+    setActiveTimer(currentActiveTimer);
   };
 
   const handleLogout = async () => {
@@ -236,6 +274,8 @@ export default function App() {
       status: 'ACTIVE',
     };
 
+  const activeTask = activeTimer ? tasks.find((t) => t.id === activeTimer.task_id) : null;
+
   return (
     <div className="app-container">
       <Navbar
@@ -249,6 +289,9 @@ export default function App() {
         isGatewayOnline={serviceHealth.gateway}
         currentUser={currentUser}
         onLogout={handleLogout}
+        activeTimer={activeTimer}
+        onStopTimer={handleStopTimer}
+        activeTaskTitle={activeTask?.title}
       />
 
       <ProjectTimelineBanner
@@ -260,6 +303,7 @@ export default function App() {
         onOpenCreateProject={() => setIsCreateProjectModalOpen(true)}
         onOpenWorkload={() => setIsWorkloadModalOpen(true)}
         onOpenFeasibility={() => setIsFeasibilityModalOpen(true)}
+        onOpenTimesheet={() => setIsTimesheetModalOpen(true)}
         currentUser={currentUser}
       />
 
@@ -270,6 +314,9 @@ export default function App() {
         onDeleteTask={handleDeleteTask}
         onOpenCreateModal={handleOpenCreateModal}
         onSelectTask={handleSelectTask}
+        activeTimer={activeTimer}
+        onStartTimer={handleStartTimer}
+        onStopTimer={handleStopTimer}
       />
 
       {/* Task Creation Modal with Phase 4 Timeline Enforcements */}
@@ -291,6 +338,10 @@ export default function App() {
         users={users}
         currentUser={currentUser}
         onTaskUpdated={handleTaskUpdated}
+        activeTimer={activeTimer}
+        onStartTimer={handleStartTimer}
+        onStopTimer={handleStopTimer}
+        onOpenLogTimeModal={handleOpenLogTimeModal}
       />
 
       {/* Developer Daily Workload & Overload Detector (TSK-020) */}
@@ -352,6 +403,25 @@ export default function App() {
         isOpen={isCreateProjectModalOpen}
         onClose={() => setIsCreateProjectModalOpen(false)}
         onCreate={handleCreateProject}
+      />
+
+      {/* Manual Time Log Modal (TSK-027) */}
+      <LogTimeModal
+        isOpen={isLogTimeModalOpen}
+        onClose={() => setIsLogTimeModalOpen(false)}
+        task={logTimeTask}
+        onLogSuccess={() => {
+          loadProjectDetails(selectedProjectId);
+        }}
+      />
+
+      {/* Weekly Timesheet & Burndown Modal (TSK-029) */}
+      <TimesheetModal
+        isOpen={isTimesheetModalOpen}
+        onClose={() => setIsTimesheetModalOpen(false)}
+        project={currentProject}
+        users={users}
+        currentUser={currentUser}
       />
     </div>
   );

@@ -12,12 +12,16 @@ import {
   History,
   Trash2,
   Plus,
+  Play,
+  Square,
 } from 'lucide-react';
 import {
   updateTaskStatus,
   fetchTaskAudit,
   addDependency,
   deleteDependency,
+  fetchTaskTimeLogs,
+  deleteTimeLog,
 } from '../services/api';
 
 export default function TaskDetailModal({
@@ -29,10 +33,15 @@ export default function TaskDetailModal({
   users,
   currentUser,
   onTaskUpdated,
+  activeTimer,
+  onStartTimer,
+  onStopTimer,
+  onOpenLogTimeModal,
 }) {
-  const [activeTab, setActiveTab] = useState('workflow'); // 'workflow', 'dependencies', 'audit'
+  const [activeTab, setActiveTab] = useState('workflow'); // 'workflow', 'dependencies', 'audit', 'timelogs'
   const [comment, setComment] = useState('');
   const [auditLogs, setAuditLogs] = useState([]);
+  const [timeLogs, setTimeLogs] = useState([]);
   const [dependsOnId, setDependsOnId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -43,12 +52,19 @@ export default function TaskDetailModal({
     setErrorMsg('');
     setSuccessMsg('');
     loadAudit();
+    loadTimeLogs();
   }, [isOpen, task]);
 
   const loadAudit = async () => {
     if (!task) return;
     const logs = await fetchTaskAudit(task.id);
     setAuditLogs(logs);
+  };
+
+  const loadTimeLogs = async () => {
+    if (!task) return;
+    const logs = await fetchTaskTimeLogs(task.id);
+    setTimeLogs(logs);
   };
 
   if (!isOpen || !task) return null;
@@ -107,6 +123,16 @@ export default function TaskDetailModal({
   const handleDeleteDependency = async (depId) => {
     await deleteDependency(depId);
     if (onTaskUpdated) onTaskUpdated();
+  };
+
+  const handleDeleteTimeLog = async (logId) => {
+    try {
+      await deleteTimeLog(logId);
+      await loadTimeLogs();
+      if (onTaskUpdated) onTaskUpdated();
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to delete time log');
+    }
   };
 
   // Find prerequisite dependencies for this task
@@ -221,6 +247,13 @@ export default function TaskDetailModal({
             >
               <History size={14} />
               <span>Audit Trail ({auditLogs.length})</span>
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'timelogs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('timelogs')}
+            >
+              <Clock size={14} />
+              <span>Time Tracking ({timeLogs.length})</span>
             </button>
           </div>
 
@@ -364,34 +397,199 @@ export default function TaskDetailModal({
             </div>
           )}
 
-          {/* TAB 3: AUDIT TRAIL */}
-          {activeTab === 'audit' && (
-            <div className="tab-pane">
-              {auditLogs.length === 0 ? (
-                <div className="empty-state-small">No status transitions recorded yet.</div>
-              ) : (
-                <div className="audit-timeline">
-                  {auditLogs.map((log) => (
-                    <div key={log.id} className="audit-entry">
-                      <div className="audit-dot" />
-                      <div className="audit-content">
-                        <div className="audit-header">
-                          <span className="audit-change">
-                            {log.old_status} → <strong>{log.new_status}</strong>
-                          </span>
-                          <span className="audit-time">
-                            {log.created_at ? new Date(log.created_at).toLocaleTimeString() : ''}
-                          </span>
+              {/* TAB 3: AUDIT TRAIL */}
+              {activeTab === 'audit' && (
+                <div className="tab-pane">
+                  {auditLogs.length === 0 ? (
+                    <div className="empty-state-small">No status transitions recorded yet.</div>
+                  ) : (
+                    <div className="audit-timeline">
+                      {auditLogs.map((log) => (
+                        <div key={log.id} className="audit-entry">
+                          <div className="audit-dot" />
+                          <div className="audit-content">
+                            <div className="audit-header">
+                              <span className="audit-change">
+                                {log.old_status} → <strong>{log.new_status}</strong>
+                              </span>
+                              <span className="audit-time">
+                                {log.created_at ? new Date(log.created_at).toLocaleTimeString() : ''}
+                              </span>
+                            </div>
+                            {log.comment && <div className="audit-comment">"{log.comment}"</div>}
+                            <div className="audit-author">By: {log.changed_by}</div>
+                          </div>
                         </div>
-                        {log.comment && <div className="audit-comment">"{log.comment}"</div>}
-                        <div className="audit-author">By: {log.changed_by}</div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
-            </div>
-          )}
+
+              {/* TAB 4: TIME TRACKING & LIVE TIMER (TSK-026 - TSK-028) */}
+              {activeTab === 'timelogs' && (
+                <div className="tab-pane">
+                  {/* Live Timer Banner */}
+                  <div
+                    style={{
+                      background: activeTimer && activeTimer.task_id === task.id
+                        ? 'rgba(239, 68, 68, 0.12)'
+                        : 'rgba(255, 255, 255, 0.03)',
+                      border: `1px solid ${
+                        activeTimer && activeTimer.task_id === task.id
+                          ? 'rgba(239, 68, 68, 0.3)'
+                          : 'var(--border)'
+                      }`,
+                      borderRadius: '10px',
+                      padding: '14px 18px',
+                      marginBottom: '16px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {activeTimer && activeTimer.task_id === task.id ? (
+                          <>
+                            <span className="live-timer-dot" />
+                            <strong style={{ color: '#ef4444' }}>Live Timer Running on this Task</strong>
+                          </>
+                        ) : (
+                          <>
+                            <Clock size={16} color="var(--primary)" />
+                            <strong>Task Timer</strong>
+                          </>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        {activeTimer && activeTimer.task_id === task.id
+                          ? 'Active timer tracking in background. Stop to commit duration.'
+                          : 'Launch live start/stop timer or enter manual logs with overlap guard.'}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {activeTimer && activeTimer.task_id === task.id ? (
+                        <button
+                          className="btn-danger"
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onClick={onStopTimer}
+                        >
+                          <Square size={13} fill="#fff" />
+                          <span>Stop Timer</span>
+                        </button>
+                      ) : (
+                        <button
+                          className="btn-secondary"
+                          style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#10b981', color: '#10b981' }}
+                          onClick={() => onStartTimer(task.id, task.title)}
+                        >
+                          <Play size={13} fill="#10b981" />
+                          <span>Start Timer</span>
+                        </button>
+                      )}
+
+                      <button
+                        className="btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        onClick={() => onOpenLogTimeModal(task)}
+                      >
+                        <Plus size={13} />
+                        <span>Log Time</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Hours Progress Breakdown */}
+                  <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: '6px' }}>
+                      <span>Logged: <strong style={{ color: '#38bdf8' }}>{task.logged_hours || 0}h</strong></span>
+                      <span>Estimated: <strong style={{ color: '#10b981' }}>{task.estimated_hours || 0}h</strong></span>
+                      <span>Remaining: <strong style={{ color: '#f59e0b' }}>{Math.max(0, (task.estimated_hours || 0) - (task.logged_hours || 0)).toFixed(1)}h</strong></span>
+                    </div>
+                    <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.min(100, ((task.logged_hours || 0) / Math.max(1, task.estimated_hours || 1)) * 100)}%`,
+                          background: (task.logged_hours || 0) > (task.estimated_hours || 0) ? '#ef4444' : '#10b981',
+                        }}
+                      />
+                    </div>
+                    {(task.logged_hours || 0) > (task.estimated_hours || 0) && (
+                      <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>
+                        ⚠️ Over estimated budget by +{((task.logged_hours || 0) - (task.estimated_hours || 0)).toFixed(1)}h
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Time Logs List */}
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px' }}>
+                    Logged Sessions ({timeLogs.length})
+                  </div>
+
+                  {timeLogs.length === 0 ? (
+                    <div className="empty-state-small">No time sessions logged for this task yet.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {timeLogs.map((log) => (
+                        <div
+                          key={log.id}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                          }}
+                        >
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: 700, color: '#38bdf8' }}>
+                                {(log.duration_minutes / 60).toFixed(1)} hrs ({log.duration_minutes}m)
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '0.68rem',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  background: log.is_manual ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                  color: log.is_manual ? '#fbbf24' : '#34d399',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {log.is_manual ? 'Manual' : 'Timer'}
+                              </span>
+                              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                {log.work_date || log.start_time?.split('T')[0]}
+                              </span>
+                            </div>
+                            {log.description && (
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', marginTop: '3px' }}>
+                                "{log.description}"
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              By: {log.user_name || log.user_id}
+                            </div>
+                          </div>
+
+                          <button
+                            className="task-action-btn delete"
+                            title="Delete time log"
+                            onClick={() => handleDeleteTimeLog(log.id)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
         </div>
 
         <div className="modal-footer">

@@ -16,6 +16,7 @@ type ProjectHandler struct {
 	projectService     *service.ProjectService
 	taskHandler        *TaskHandler
 	feasibilityHandler *FeasibilityHandler
+	timeLogHandler     *TimeLogHandler
 }
 
 func NewProjectHandler(projectService *service.ProjectService) *ProjectHandler {
@@ -28,6 +29,10 @@ func (h *ProjectHandler) SetTaskHandler(taskHandler *TaskHandler) {
 
 func (h *ProjectHandler) SetFeasibilityHandler(feasibilityHandler *FeasibilityHandler) {
 	h.feasibilityHandler = feasibilityHandler
+}
+
+func (h *ProjectHandler) SetTimeLogHandler(timeLogHandler *TimeLogHandler) {
+	h.timeLogHandler = timeLogHandler
 }
 
 func (h *ProjectHandler) HandleProjects(w http.ResponseWriter, r *http.Request) {
@@ -121,6 +126,18 @@ func (h *ProjectHandler) HandleProjectByID(w http.ResponseWriter, r *http.Reques
 	// Route /api/v1/projects/:id/feasibility
 	if len(parts) >= 2 && parts[1] == "feasibility" && h.feasibilityHandler != nil {
 		h.feasibilityHandler.HandleProjectFeasibility(w, r)
+		return
+	}
+
+	// Route /api/v1/projects/:id/timelogs
+	if len(parts) >= 2 && parts[1] == "timelogs" && h.timeLogHandler != nil {
+		h.timeLogHandler.HandleProjectTimeLogs(w, r, projectID)
+		return
+	}
+
+	// Route /api/v1/projects/:id/burndown
+	if len(parts) >= 2 && parts[1] == "burndown" && h.timeLogHandler != nil {
+		h.timeLogHandler.HandleProjectBurndown(w, r, projectID)
 		return
 	}
 

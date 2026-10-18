@@ -62,3 +62,7 @@ func NewValidation(message string, details interface{}) *AppError {
 func NewInternal(message string) *AppError {
 	return New(ErrInternal, message, 500, nil)
 }
+
+func NewTimerAlreadyActive(message string) *AppError {
+	return New(ErrTimerAlreadyActive, message, 409, nil)
+}

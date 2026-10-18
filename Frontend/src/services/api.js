@@ -516,3 +516,144 @@ export async function simulateProjectFeasibility(projectId, simulationData) {
   }
   return json.data || json;
 }
+
+// -------------------------------------------------------------
+// Phase 6: Time Tracking API (TSK-026, TSK-027, TSK-028, TSK-029)
+// -------------------------------------------------------------
+
+// Live Timer Start (TSK-026)
+export async function startTimer(taskId, description = "") {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/timer/start`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ description }),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.error?.message || "Failed to start timer");
+  }
+  return json.data || json;
+}
+
+// Live Timer Stop (TSK-026, TSK-028)
+export async function stopTimer() {
+  const res = await fetch(`${API_BASE}/timer/stop`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.error?.message || "Failed to stop timer");
+  }
+  return json.data || json;
+}
+
+// Get Active Timer for Current User (TSK-026)
+export async function fetchActiveTimer() {
+  try {
+    const res = await fetch(`${API_BASE}/timer/active`, { headers: authHeaders() });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return null;
+  }
+}
+
+// Create Manual Time Log (TSK-027, TSK-028)
+export async function createTimeLog(taskId, logData) {
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/timelogs`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(logData),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.error?.message || "Failed to log time");
+  }
+  return json.data || json;
+}
+
+// Fetch Time Logs for a Task (TSK-027)
+export async function fetchTaskTimeLogs(taskId) {
+  try {
+    const res = await fetch(`${API_BASE}/tasks/${taskId}/timelogs`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || json || [];
+  } catch {
+    return [];
+  }
+}
+
+// Fetch Time Logs for an entire Project (TSK-027)
+export async function fetchProjectTimeLogs(projectId) {
+  try {
+    const res = await fetch(`${API_BASE}/projects/${projectId}/timelogs`, { headers: authHeaders() });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || json || [];
+  } catch {
+    return [];
+  }
+}
+
+// Update Manual Time Log (TSK-027, TSK-028)
+export async function updateTimeLog(logId, logData) {
+  const res = await fetch(`${API_BASE}/timelogs/${logId}`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify(logData),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.error?.message || "Failed to update time log");
+  }
+  return json.data || json;
+}
+
+// Delete Time Log (TSK-027, TSK-028)
+export async function deleteTimeLog(logId) {
+  const res = await fetch(`${API_BASE}/timelogs/${logId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(json?.error?.message || "Failed to delete time log");
+  }
+  return json.data || json;
+}
+
+// Fetch Weekly Timesheet (TSK-029)
+export async function fetchWeeklyTimesheet(userId = "", weekStart = "") {
+  try {
+    const tzOffset = -new Date().getTimezoneOffset(); // in minutes
+    let url = `${API_BASE}/timesheets/weekly?tz=${tzOffset}`;
+    if (userId) url += `&user_id=${userId}`;
+    if (weekStart) url += `&week_start=${weekStart}`;
+
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new Error("Failed to fetch timesheet");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return null;
+  }
+}
+
+// Fetch Project Burndown (TSK-029)
+export async function fetchProjectBurndown(projectId) {
+  try {
+    const tzOffset = -new Date().getTimezoneOffset();
+    const res = await fetch(`${API_BASE}/projects/${projectId}/burndown?tz=${tzOffset}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error("Failed to fetch burndown");
+    const json = await res.json();
+    return json.data || json;
+  } catch {
+    return null;
+  }
+}
+

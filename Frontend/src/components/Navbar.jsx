@@ -1,5 +1,5 @@
-import React from 'react';
-import { Layers, Plus, Search, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Layers, Plus, Search, LogOut, Clock, Square } from 'lucide-react';
 
 export default function Navbar({
   projects,
@@ -12,7 +12,37 @@ export default function Navbar({
   isGatewayOnline,
   currentUser,
   onLogout,
+  activeTimer,
+  onStopTimer,
+  activeTaskTitle,
 }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!activeTimer) {
+      setElapsed(0);
+      return;
+    }
+    const update = () => {
+      const start = new Date(activeTimer.start_time).getTime();
+      const diffSec = Math.max(0, Math.floor((Date.now() - start) / 1000));
+      setElapsed(diffSec);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [activeTimer]);
+
+  const formatElapsed = (sec) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) {
+      return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
   const roleColors = {
     PROJECT_MANAGER: { bg: 'rgba(168, 85, 247, 0.15)', text: '#c084fc', border: 'rgba(168, 85, 247, 0.3)' },
     DEVELOPER: { bg: 'rgba(56, 189, 248, 0.15)', text: '#38bdf8', border: 'rgba(56, 189, 248, 0.3)' },
@@ -60,6 +90,21 @@ export default function Navbar({
       </div>
 
       <div className="nav-right">
+        {activeTimer && (
+          <div className="nav-active-timer-pill" title={`Active Timer on ${activeTaskTitle || activeTimer.task_id}`}>
+            <span className="live-timer-dot" />
+            <Clock size={14} color="#ef4444" />
+            <span className="live-timer-clock">{formatElapsed(elapsed)}</span>
+            <span className="live-timer-title">
+              {activeTaskTitle || 'Active Task'}
+            </span>
+            <button className="btn-stop-timer-mini" onClick={onStopTimer} title="Stop Timer & Log Time">
+              <Square size={11} fill="#fff" />
+              <span>Stop</span>
+            </button>
+          </div>
+        )}
+
         <div
           className="services-indicator"
           onClick={onOpenServicesModal}

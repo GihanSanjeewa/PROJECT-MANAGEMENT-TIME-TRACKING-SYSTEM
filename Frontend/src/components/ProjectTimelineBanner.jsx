@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Users, Settings, Plus, Clock, Gauge } from 'lucide-react';
+import { Calendar, Users, Settings, Plus, Clock, Gauge, TrendingDown } from 'lucide-react';
 
 export default function ProjectTimelineBanner({
   project,
@@ -10,6 +10,7 @@ export default function ProjectTimelineBanner({
   onOpenCreateProject,
   onOpenWorkload,
   onOpenFeasibility,
+  onOpenTimesheet,
   currentUser,
 }) {
   const isPMOrAdmin =
@@ -40,6 +41,11 @@ export default function ProjectTimelineBanner({
         </div>
 
         <div className="project-banner-actions">
+          <button className="btn-secondary" onClick={onOpenTimesheet} title="Weekly Timesheet & Project Burndown Chart">
+            <TrendingDown size={15} color="#38bdf8" />
+            <span>Timesheet & Burndown</span>
+          </button>
+
           <button className="btn-secondary btn-feasibility-action" onClick={onOpenFeasibility} title="Deadline Feasibility & What-If Simulator">
             <Gauge size={15} color={scoreColor} />
             <span>Feasibility ({score}%)</span>

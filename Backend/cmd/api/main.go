@@ -46,6 +46,7 @@ func main() {
 	tokenStore := repository.NewInMemoryTokenStore()
 	projectRepo := repository.NewInMemoryProjectRepository()
 	taskRepo := repository.NewInMemoryTaskRepository(projectRepo)
+	timelogRepo := repository.NewInMemoryTimeLogRepository()
 
 	// Services
 	calendarServ := service.NewCalendarService()
@@ -54,9 +55,10 @@ func main() {
 	projectService := service.NewProjectService(projectRepo, userRepo, calendarServ)
 	taskService := service.NewTaskService(taskRepo, projectRepo, userRepo, calendarServ)
 	feasibilityService := service.NewFeasibilityService(projectRepo, taskRepo, userRepo, calendarServ)
+	timeLogService := service.NewTimeLogService(timelogRepo, taskRepo, projectRepo, userRepo, calendarServ)
 
-	// Seed initial data (Admins, Team Members, Initial Project, and Phase 4 Tasks)
-	seedInitialData(context.Background(), userService, projectService, taskService)
+	// Seed initial data (Admins, Team Members, Initial Project, Phase 4 Tasks, and Phase 6 TimeLogs)
+	seedInitialData(context.Background(), userService, projectService, taskService, timeLogService)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, userService)
@@ -64,8 +66,12 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectService)
 	taskHandler := handler.NewTaskHandler(taskService)
 	feasibilityHandler := handler.NewFeasibilityHandler(feasibilityService)
+	timeLogHandler := handler.NewTimeLogHandler(timeLogService)
+
 	projectHandler.SetTaskHandler(taskHandler)
 	projectHandler.SetFeasibilityHandler(feasibilityHandler)
+	projectHandler.SetTimeLogHandler(timeLogHandler)
+	taskHandler.SetTimeLogHandler(timeLogHandler)
 
 	mux := http.NewServeMux()
 
@@ -108,6 +114,17 @@ func main() {
 
 	// /tasks collection, updates, state machine & dependencies
 	mux.Handle("/api/v1/tasks/", authMiddleware(http.HandlerFunc(taskHandler.HandleTaskByID)))
+
+	// Phase 6: /timer live start, stop, active
+	mux.Handle("/api/v1/timer/", authMiddleware(http.HandlerFunc(timeLogHandler.HandleTimer)))
+
+	// Phase 6: /timelogs update & delete
+	mux.Handle("/api/v1/timelogs/", authMiddleware(http.HandlerFunc(timeLogHandler.HandleTimeLogByID)))
+
+	// Phase 6: /timesheets weekly aggregation
+	mux.Handle("/api/v1/timesheets/weekly", authMiddleware(http.HandlerFunc(timeLogHandler.HandleWeeklyTimesheet)))
+	mux.Handle("/api/v1/timesheets/", authMiddleware(http.HandlerFunc(timeLogHandler.HandleWeeklyTimesheet)))
+	mux.Handle("/api/v1/timesheets", authMiddleware(http.HandlerFunc(timeLogHandler.HandleWeeklyTimesheet)))
 
 	// /dependencies deletion endpoint
 	mux.Handle("/api/v1/dependencies/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +198,7 @@ func seedInitialData(
 	userService *service.UserService,
 	projectService *service.ProjectService,
 	taskService *service.TaskService,
+	timeLogService *service.TimeLogService,
 ) {
 	seeds := []service.CreateUserDTO{
 		{
@@ -379,6 +397,81 @@ func seedInitialData(
 		}
 		if task1 != nil && task2 != nil {
 			_, _ = taskService.AddDependency(ctx, proj.ID, task2.ID, task1.ID, "FS")
+		}
+
+		// Seed Phase 6 initial realistic time logs
+		if timeLogService != nil {
+			if task1 != nil && baID != "" {
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task1.ID,
+					UserID:          baID,
+					DurationMinutes: 480,
+					WorkDate:        start.Format("2006-01-02"),
+					Description:     "Requirements gathering and user journey mapping",
+				})
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task1.ID,
+					UserID:          baID,
+					DurationMinutes: 480,
+					WorkDate:        start.AddDate(0, 0, 1).Format("2006-01-02"),
+					Description:     "OpenAPI 3.0 specification drafting and review",
+				})
+			}
+			if task2 != nil && devID != "" {
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task2.ID,
+					UserID:          devID,
+					DurationMinutes: 480,
+					WorkDate:        start.AddDate(0, 0, 6).Format("2006-01-02"),
+					Description:     "PostgreSQL migrations & domain entity scaffolding",
+				})
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task2.ID,
+					UserID:          devID,
+					DurationMinutes: 480,
+					WorkDate:        start.AddDate(0, 0, 7).Format("2006-01-02"),
+					Description:     "Repository interfaces and in-memory mock implementations",
+				})
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task2.ID,
+					UserID:          devID,
+					DurationMinutes: 480,
+					WorkDate:        start.AddDate(0, 0, 8).Format("2006-01-02"),
+					Description:     "Service integration and error handling verification",
+				})
+			}
+			if task3 != nil && devID != "" {
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task3.ID,
+					UserID:          devID,
+					DurationMinutes: 480,
+					WorkDate:        start.AddDate(0, 0, 13).Format("2006-01-02"),
+					Description:     "Bcrypt password hasher & JWT claim generation",
+				})
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task3.ID,
+					UserID:          devID,
+					DurationMinutes: 480,
+					WorkDate:        start.AddDate(0, 0, 14).Format("2006-01-02"),
+					Description:     "Rotating refresh token security & revocation store",
+				})
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task3.ID,
+					UserID:          devID,
+					DurationMinutes: 120,
+					WorkDate:        start.AddDate(0, 0, 15).Format("2006-01-02"),
+					Description:     "Auth middleware & brute force rate limiting tests",
+				})
+			}
+			if task4 != nil && devID != "" {
+				_, _ = timeLogService.CreateManualLog(ctx, &domain.TimeLog{
+					TaskID:          task4.ID,
+					UserID:          devID,
+					DurationMinutes: 480,
+					WorkDate:        start.AddDate(0, 0, 16).Format("2006-01-02"),
+					Description:     "DAG reachability DFS cycle detector engine",
+				})
+			}
 		}
 	}
 }

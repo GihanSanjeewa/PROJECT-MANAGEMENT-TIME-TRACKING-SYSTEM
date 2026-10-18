@@ -2029,4 +2029,110 @@ body {
   color: #e9d5ff;
 }
 
+/* ==========================================================================
+   Phase 6: Time Tracking Engine Styles (TSK-026 - TSK-029)
+   ========================================================================== */
+
+.nav-active-timer-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
+  animation: timerPulseGlow 2s infinite ease-in-out;
+}
+
+@keyframes timerPulseGlow {
+  0%, 100% {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.8);
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.4);
+  }
+}
+
+.live-timer-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  animation: liveBlink 1s infinite alternate;
+}
+
+@keyframes liveBlink {
+  from { opacity: 0.3; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1.15); }
+}
+
+.live-timer-clock {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  color: #f87171;
+  letter-spacing: 0.05em;
+}
+
+.live-timer-title {
+  color: var(--text-main);
+  font-weight: 600;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-stop-timer-mini {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-stop-timer-mini:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.task-card-active-timer {
+  border-color: rgba(239, 68, 68, 0.6) !important;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.25) !important;
+}
+
+.task-action-btn.timer-running {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  animation: liveBlink 1.2s infinite alternate;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+
 
